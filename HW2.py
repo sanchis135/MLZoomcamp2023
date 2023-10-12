@@ -139,7 +139,7 @@ y_pred_b = w_0_b + X_val_b.dot(w_b)
 rmse_b_val = rmse(y_val_b, y_pred_b)
 print('rmse (option 2 - val): ', round(rmse_b_val,2))
 
-#Solution: 
+#Solution: Both are equally good
 #rmse (option 1 - train):  0.34
 #rmse (option 2 - train):  0.34
 #rmse (option 1 - val):  0.34
@@ -170,7 +170,7 @@ for r in [0, 0.000001, 0.0001, 0.001, 0.01, 0.1, 1, 5, 10]:
     w_0_a, w_a = train_linear_regression_reg(X_train_a, y_train_a, r)
     y_pred_a = w_0_a + X_val_a.dot(w_a)
     print('%6s' %r, rmse(y_val_a, y_pred_a))
-#Solution
+#Solution: r=0
 #0 0.3408479034133711***the smallest r
 # 1e-06 0.3408479061803642
 #0.0001 0.3408481800530103
@@ -192,28 +192,68 @@ print('QUESTION 5')
 #Round the result to 3 decimal digits (round(std, 3))
 #What's the value of std?
 
-for s in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]:
-    np.random.seed(s)
-    w_0_a, w_a = train_linear_regression(X_train_a, y_train_a)
-    y_pred_a = w_0_a + X_val_a.dot(w_a)
-    rmse_f = rmse(y_val_a, y_pred_a)
-    print('%6s' %s, rmse_f)
+rmses = []
 
-std = np.std(rmse_f)
-std = round(std, 3)
-print('Standard deviation of all the scores: ', std)
+for s in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]:
+
+    n = len(df)
+
+    n_val = int(0.2 * n)
+    n_test = int(0.2 * n)
+    n_train = n - (n_val + n_test)
+
+    idx = np.arange(n)
+    np.random.seed(s)
+    np.random.shuffle(idx)
+
+    df_shuffled = df.iloc[idx]
+
+    df_train = df_shuffled.iloc[:n_train].copy()
+    df_val = df_shuffled.iloc[n_train:n_train+n_val].copy()
+    df_test = df_shuffled.iloc[n_train+n_val:].copy()
+
+    df_train = df_train.reset_index(drop=True)
+    df_val = df_val.reset_index(drop=True)
+    df_test = df_test.reset_index(drop=True)
+    
+    y_train_orig = df_train.median_house_value.values
+    y_val_orig = df_val.median_house_value.values
+    y_test_orig = df_test.median_house_value.values
+
+    y_train = np.log1p(y_train_orig)
+    y_val = np.log1p(y_val_orig)
+    y_test = np.log1p(y_test_orig)
+
+    del df_train['median_house_value']
+    del df_val['median_house_value']
+    del df_test['median_house_value']
+    
+    X_train = prepare_X(df_train, fillna_value=0)
+    w_0, w = train_linear_regression(X_train, y_train)
+
+    X_val = prepare_X(df_val, fillna_value=0)
+    y_pred = w_0 + X_val.dot(w)
+
+    result = rmse(y_val, y_pred)
+    print(s, result)
+    
+    rmses.append(result)
+    
 #Solution:
-#     0 0.3408479034133711
-#     1 0.3408479034133711
-#     2 0.3408479034133711
-#     3 0.3408479034133711
-#     4 0.3408479034133711
-#     5 0.3408479034133711
-#     6 0.3408479034133711
-#     7 0.3408479034133711
-#     8 0.3408479034133711
-#     9 0.3408479034133711
-#Standard deviation of all the scores:  0.0
+#0 0.33773871600834
+#1 0.3377999353661282
+#2 0.33842870067685615
+#3 0.33200494683081555
+#4 0.3394451862556629
+#5 0.34338197052599967
+#6 0.3385330211773903
+#7 0.3468747697289676
+#8 0.3512736865957031
+#9 0.33415582665211396
+
+print(np.std(rmses))
+
+#Standard deviation of all the scores:  0.005465718180462604
 
 
 ################################################################################################################################
@@ -222,15 +262,45 @@ print('QUESTION 6')
 #Combine train and validation datasets.
 #Fill the missing values with 0 and train a model with r=0.001.
 #What's the RMSE on the test dataset?
+n = len(df)
+
+n_val = int(0.2 * n)
+n_test = int(0.2 * n)
+n_train = n - (n_val + n_test)
+
+idx = np.arange(n)
 np.random.seed(9)
-w_0, w = train_linear_regression_reg(X_train_a, y_train_a, r=0.001)
+np.random.shuffle(idx)
 
-y_pred_a = w_0 + X_val_a.dot(w)
-print('validation:', rmse(y_val_a, y_pred_a))
+df_shuffled = df.iloc[idx]
 
-X_test_a = prepare_X_0(df_test)
-y_pred_a = w_0_a + X_test_a.dot(w)
-print('test:', rmse(y_test_a, y_pred_a))
-#Solution: 
-#validation: 0.340850692187126
-#test: 0.33109421874687023
+df_train = df_shuffled.iloc[:n_train].copy()
+df_val = df_shuffled.iloc[n_train:n_train+n_val].copy()
+df_test = df_shuffled.iloc[n_train+n_val:].copy()
+
+df_train = df_train.reset_index(drop=True)
+df_val = df_val.reset_index(drop=True)
+df_test = df_test.reset_index(drop=True)
+
+y_train_orig = df_train.median_house_value.values
+y_val_orig = df_val.median_house_value.values
+y_test_orig = df_test.median_house_value.values
+
+y_train = np.log1p(y_train_orig)
+y_val = np.log1p(y_val_orig)
+y_test = np.log1p(y_test_orig)
+
+del df_train['median_house_value']
+del df_val['median_house_value']
+del df_test['median_house_value']
+
+X_train = prepare_X(df_train, fillna_value=0)
+w_0, w = train_linear_regression(X_train, y_train)
+
+X_test = prepare_X(df_test, fillna_value=0)
+y_pred = w_0 + X_test.dot(w)
+
+result = rmse(y_test, y_pred)
+print(result)
+
+#Solution: 0.33488435337023637
