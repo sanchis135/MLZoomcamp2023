@@ -47,12 +47,14 @@ df2 = df.fillna(value={'total_bedrooms': mean_total_bedrooms})
 print('New average of total_bedrooms', df2['total_bedrooms'].mean()) #No
 
 #QUESTION 7
-df2 = df.loc[df['ocean_proximity']=='ISLAND'] #5 rows
-df3 = df2[["housing_median_age","total_rooms","total_bedrooms"]]
-X = df3.to_numpy()
-XTX = numpy.dot(X.T,X)
-inverse = numpy.linalg.inv(XTX)
-y = [[950, 1300, 800, 1000, 1300]]
-w = numpy.dot(inverse, XTX)
-#w=numpy.dot(w,y)
-print('The result of w is: ', w)
+island_df = data[data.ocean_proximity == 'ISLAND']
+island_df = island_df[['housing_median_age', 'total_rooms', 'total_bedrooms']]
+print(island_df)
+X = island_df.values
+XTX = X.T.dot(X)
+
+XTX_inv = np.linalg.inv(XTX)
+print(XTX_inv)
+y = np.array([950, 1300, 800, 1000, 1300])
+w = (XTX_inv @ X.T) @ y
+print(w[2]) #5.6992294550655656
