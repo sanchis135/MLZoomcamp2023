@@ -59,7 +59,7 @@ df['above_average'] = np.where(df['price'] > df['price'].mean(), 1, 0)
 #Split the data
 from sklearn.model_selection import train_test_split
 df_train_full, df_test = train_test_split(df, test_size=0.2, random_state=42)
-df_train, df_val = train_test_split(df_train_full, test_size=0.20, random_state=42)
+df_train, df_val = train_test_split(df_train_full, test_size=0.25, random_state=42)
 df_train = df_train.reset_index(drop=True)
 df_val = df_val.reset_index(drop=True)
 df_test = df_test.reset_index(drop=True)
@@ -97,56 +97,54 @@ display(df_mi.head())
 ################################################################################################################################
 print('QUESTION 4')
 
-from sklearn.feature_extraction import DictVectorizer
-from sklearn.linear_model import LogisticRegression
-
-train_dict = df_train[categorical + numerical].to_dict(orient='records')
 dv = DictVectorizer(sparse=False)
-dv.fit(train_dict)
+train_dict = df_train.to_dict(orient='records')
+X_train = dv.fit_transform(train_dict)
 
-X_train = dv.transform(train_dict)
-#print(X_train.shape)
-
-model = LogisticRegression(solver='liblinear', C=10, max_iter=1000, random_state=42)
+model = LogisticRegression(solver='liblinear', max_iter=1000, C=10, random_state=SEED)
 model.fit(X_train, y_train)
 
-val_dict = df_val[categorical + numerical].to_dict(orient='records')
+val_dict = df_val.to_dict(orient='records')
 X_val = dv.transform(val_dict)
 
-model.predict_proba(X_val)
+y_pred = model.predict(X_val)
 
-y_pred = model.predict_proba(X_val)[:, 1]
-#print(y_pred)
+accuracy = np.round(accuracy_score(y_val, y_pred),2)
+print(f'Accuracy = {accuracy}')
 
-pred = y_pred > 0.5
-print(pred)
-
-#scaler = StandardScaler()
-#ohe = OneHotEncoder(sparse=False, handle_unknown='ignore')
-
-#X_val_num = df_val[numerical].values
-#X_val_num = scaler.transform(X_val_num)
-
-#X_val_cat = ohe.transform(df_val[categorical].values)
-
-#X_val = np.column_stack([X_val_num, X_val_cat])
-
-#y_pred = model.predict_proba(X_val)[:, 1]
-#acc = accuracy_score(y_val, y_pred >= 0.5)
-
-#print(acc)
+#Solution: Accuracy = 0.95
 
 ################################################################################################################################
-#print('QUESTION 5')
-#from sklearn.feature_selection import RFE
-#from sklearn.linear_model import LogisticRegression
+print('QUESTION 5')
 
-#model = LogisticRegression(solver='liblinear', C=10, max_iter=1000, random_state=42)
-#rfe = RFE(model, 3)
-#fit = rfe.fit(X_train, y_train)
-#print("Num Features: %s" % (fit.n_features_))
-#print("Selected Features: %s" % (fit.support_))
-#print("Feature Ranking: %s" % (fit.ranking_))
+features = df_train.columns.to_list()
+features
+
+original_score = accuracy
+scores = pd.DataFrame(columns=['eliminated_feature', 'accuracy', 'difference'])
+for feature in features:
+    subset = features.copy()
+    subset.remove(feature)
+    
+    dv = DictVectorizer(sparse=False)
+    train_dict = df_train[subset].to_dict(orient='records')
+    X_train = dv.fit_transform(train_dict)
+
+    model = LogisticRegression(solver='liblinear', max_iter=1000, C=10, random_state=SEED)
+    model.fit(X_train, y_train)
+    
+    val_dict = df_val[subset].to_dict(orient='records')
+    X_val = dv.transform(val_dict)
+    
+    y_pred = model.predict(X_val)
+    score = accuracy_score(y_val, y_pred)
+    
+    scores.loc[len(scores)] = [feature, score, original_score - score]
+
+min_diff = scores.difference.min()
+scores[scores.difference == min_diff]
+
+#Solution: year
 
 ################################################################################################################################
 print('QUESTION 6')
@@ -165,3 +163,42 @@ df['engine_cylinders'] = df.engine_cylinders.fillna(0)
 #Rename MSRP variable to price
 df=df.rename(columns={"msrp": "price"})
 
+df_full_train, df_test = train_test_split(data, test_size=0.2, random_state=SEED)
+df_train, df_val = train_test_split(df_full_train, test_size=0.25, random_state=SEED)
+
+df_train = df_train.reset_index(drop=True)
+df_val = df_val.reset_index(drop=True)
+df_test = df_test.reset_index(drop=True)
+
+y_train = df_train.price.values
+y_val = df_val.price.values
+y_test = df_test.price.values
+df_train = df_train.drop('price', axis=1)
+df_val = df_val.drop('price', axis=1)
+df_test = df_test.drop('price', axis=1)
+
+assert 'price' not in df_train.columns
+assert 'price' not in df_val.columns
+assert 'price' not in df_test.columns
+
+dv = DictVectorizer(sparse=False)
+train_dict = df_train.to_dict(orient='records')
+X_train = dv.fit_transform(train_dict)
+
+val_dict = df_val.to_dict(orient='records')
+X_val = dv.transform(val_dict)
+scores = {}
+for alpha in [0, 0.01, 0.1, 1, 10]:
+    model = Ridge(alpha=alpha, solver='sag', random_state=SEED)
+    model.fit(X_train, y_train)
+    
+    y_pred = model.predict(X_val)
+    
+    score = mean_squared_error(y_val, y_pred, squared=False)
+    scores[alpha] = round(score, 3)
+    print(f'alpha = {alpha}:\t RMSE = {score}')
+
+print(scores)
+print(f'The smallest `alpha` is {min(scores, key=scores.get)}.')
+
+#Solution: The smallest `alpha` is 0.
